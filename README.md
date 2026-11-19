@@ -2,7 +2,7 @@
 
 A local HTTP gateway for the university project on semantic operators. Each student runs their own instance; model calls go through `/v1/responses` or `/v1/embeddings`. Responses are stored in SQLite and calls are recorded in JSONL. The group's cache on Backblaze B2 is synchronized only through `cache pull` and `cache push`.
 
-To get started from a fresh clone, follow the [gateway operating guide](docs/GATEWAY_GUIDE.md).
+To get started from a fresh clone, follow the [student manual] in the docs folder. For every editable TOML setting, see the [configuration reference](docs/CONFIGURATION.md).
 
 ## Requirements and installation
 
@@ -66,7 +66,9 @@ The local cache works without B2. To synchronize it manually, set `enabled = tru
 
 The workflow between students and conflict handling are described in [docs/CACHE_B2.md](docs/CACHE_B2.md).
 
-The `runs check` and `runs build` commands require the external `semops_check.py` file at the repository root. The checker is distributed separately from the gateway. The gateway CLI does not require RDFLib, PyOxiGraph, Neo4j, or GraphDB.
+The `runs check` and `runs build` commands use a separately distributed `semops_check.py` **outside this repository**. Set `SEMOPS_CHECKER_PATH` to its path before running them, for example `export SEMOPS_CHECKER_PATH=/absolute/path/to/semops_check.py`. See [run files and the checker](docs/RUN_FILES.md). The gateway CLI does not require RDFLib, PyOxiGraph, Neo4j, or GraphDB.
+
+The PDF manual's troubleshooting instruction to place `semops_check.py` at the gateway root is outdated; use `SEMOPS_CHECKER_PATH` as described here.
 
 ## Tests
 

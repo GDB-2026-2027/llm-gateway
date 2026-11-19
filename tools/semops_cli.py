@@ -39,7 +39,7 @@ def run_start(arguments: list[str]) -> None:
     sub = parser.add_subparsers(dest="action", required=True)
     server = sub.add_parser("server", help="start, loading azure.local.env by default")
     server.add_argument("--env", default="azure.local.env", help=".env path (default: azure.local.env)")
-    server.add_argument("--no-env", action="store_true", help="do not load .env files")
+    server.add_argument("--no-env", action="store_true", help="skip the file selected by --env")
     sub.add_parser("status", help="HTTP GET /health, without LLM calls")
     a = parser.parse_args(arguments)
     if a.action == "server":
@@ -157,15 +157,21 @@ def run_runs(arguments: list[str]) -> None:
     sub.add_parser("check", help="check run files and generate results.csv")
     sub.add_parser("build", help="create a run from manifest.json and answer.json")
     known, remaining = parser.parse_known_args(arguments)
-    if not (ROOT / "semops_check.py").is_file():
-        fail("semops_check.py not found at the gateway root")
+    checker_setting = os.environ.get("SEMOPS_CHECKER_PATH")
+    if not checker_setting:
+        fail("set SEMOPS_CHECKER_PATH to the external semops_check.py file")
+    checker = Path(checker_setting).expanduser().resolve()
+    if not checker.is_file():
+        fail(f"checker file not found: {checker}")
+    if checker.is_relative_to(ROOT.resolve()):
+        fail("SEMOPS_CHECKER_PATH must point outside the gateway repository")
     env = os.environ.copy()
     os.chdir(ROOT)
     if known.action == "check":
         arguments = [".", "--results", "results.csv", *remaining]
     else:
         arguments = ["--build-run", "--repo-root", ".", "--gateway-config", "gateway.toml", *remaining]
-    os.execvpe(sys.executable, [sys.executable, "semops_check.py", *arguments], env)
+    os.execvpe(sys.executable, [sys.executable, str(checker), *arguments], env)
 
 
 def main() -> None:

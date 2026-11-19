@@ -4,7 +4,7 @@ Each student runs a local gateway with a SQLite cache. Students in the same grou
 
 ## Configuration
 
-The `[cache_sync]` section of `gateway.toml` contains `enabled = true`, the bucket, B2 endpoint, `compatibility_id`, `credentials_file` path, and archive size limits. Each student must create the indicated file locally (`b2.local.env` by default) with:
+The `[cache_sync]` section of `gateway.toml` contains `enabled = true`, the bucket, B2 endpoint, `compatibility_id`, `credentials_file` path, and archive size limits. For the meaning and validation of each setting, see the [configuration reference](CONFIGURATION.md). Each student must create the indicated file locally (`b2.local.env` by default) with:
 
 ```dotenv
 SEMOPS_STUDENT_ID=unique-student-id

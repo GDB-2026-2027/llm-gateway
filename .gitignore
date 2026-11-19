@@ -6,6 +6,7 @@
 !templates/*.local.env.example
 /gateway.toml
 /models.toml
+# Keep the separately distributed checker out of this repository if copied here by mistake.
 /semops_check.py
 /data/
 /.cache_sync/

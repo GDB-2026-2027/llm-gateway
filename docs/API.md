@@ -119,7 +119,7 @@ With the corresponding Ollama model available, the response has this shape (vect
 | 413 | Body exceeds the configured limit (`max_body_bytes` for responses, `max_embeddings_body_bytes` for embeddings). |
 | 404 | Unknown public model name. |
 | 422 | Invalid body or JSON Schema, wrong task, or an option not supported by the route. |
-| 429 | Provider rate/concurrency limit or exhausted attempts for `(run_id, model)`. |
+| 429 | Local gateway rate/concurrency limit or exhausted attempts for `(run_id, model)`. An upstream HTTP 429 may become 502 after retries. |
 | 501 | Backend not implemented for the requested task. |
 | 502 | Upstream/transport error, malformed upstream response, or unavailable fallback. |
 | 503 | Corrupt cache entry; the gateway does not make a new upstream call. |
@@ -129,5 +129,7 @@ HTTP errors generally have a `{"detail": ...}` body. Transport errors, timeouts,
 ## Database bindings
 
 For Neo4j GenAI, point `genai.openai.baseurl` at the local gateway and pass `instructions`, `metadata.run_id`, and `metadata.cache_namespace` through `vendorOptions`. The plugin requires `output[0].type: "message"`. Cypher returns the validated map, for example `{answer: false}` or `{label: "__PARSE_FAILURE__"}`; `parse_ok` and `error_type` are not exposed in the map. For Boolean results, the JSONL log identified by `run_id` distinguishes a fallback from an actual negative decision. A direct HTTP client can read `parse_ok` in the response body instead.
+
+If Neo4j runs in Docker while the gateway runs on the host, `127.0.0.1` inside the container refers to the container. Use a host address reachable from the container (often `host.docker.internal` on Docker Desktop), make `[server].host` listen on a reachable interface, and limit access to the intended network.
 
 For RDFLib and Oxigraph, SPARQL functions must make HTTP requests to the gateway. The repository does not include students' operators.
