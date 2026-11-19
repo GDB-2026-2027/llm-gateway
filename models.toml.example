@@ -1,0 +1,79 @@
+[models."local/qwen2.5:3b"]
+backend = "openai_compatible"
+upstream_model = "qwen2.5:3b"
+base_url = "http://127.0.0.1:11434/v1"
+top_logprobs = 5
+json_schema_mode = "native"
+
+[models."local/nomic-embed-text"]
+backend = "openai_compatible"
+task = "embeddings"
+upstream_model = "nomic-embed-text"
+base_url = "http://127.0.0.1:11434/v1"
+
+[models."local/bge-small-en-v1.5"]
+backend = "fastembed"
+task = "embeddings"
+upstream_model = "BAAI/bge-small-en-v1.5"
+
+
+[models."gemini-3.5-flash"]
+backend = "google_genai"
+task = "responses"
+upstream_model = "gemini-3.5-flash"
+json_schema_mode = "native"
+
+[models."google/gemini-embedding-001"]
+backend = "google_genai"
+task = "embeddings"
+upstream_model = "gemini-embedding-001"
+location = "europe-west4"
+embedding_dimensions = 768
+
+[models."local/qwen2.5:3b-smoke-native"]
+backend = "openai_compatible"
+upstream_model = "qwen2.5:3b"
+base_url = "http://127.0.0.1:11434/v1"
+json_schema_mode = "native"
+
+[models."local/qwen2.5:3b-smoke-prompt"]
+backend = "openai_compatible"
+upstream_model = "qwen2.5:3b"
+base_url = "http://127.0.0.1:11434/v1"
+json_schema_mode = "prompt"
+
+[models."gemini-3.5-flash-smoke-prompt"]
+backend = "google_genai"
+task = "responses"
+upstream_model = "gemini-3.5-flash"
+json_schema_mode = "prompt"
+
+[models."azure/smoke-native"]
+backend = "openai_compatible"
+upstream_model = "gpt-4.1-nano"
+base_url = "https://your-resource.openai.azure.com/openai/v1"
+api_key_env = "AZURE_OPENAI_API_KEY"
+json_schema_mode = "native"
+
+[models."azure/smoke-prompt"]
+backend = "openai_compatible"
+upstream_model = "gpt-4.1-nano"
+base_url = "https://your-resource.openai.azure.com/openai/v1"
+api_key_env = "AZURE_OPENAI_API_KEY"
+json_schema_mode = "prompt"
+
+[models."azure/smoke-logprobs"]
+backend = "openai_compatible"
+upstream_model = "gpt-4.1-nano"
+base_url = "https://your-resource.openai.azure.com/openai/v1"
+api_key_env = "AZURE_OPENAI_API_KEY"
+json_schema_mode = "native"
+top_logprobs = 5
+
+[models."azure/decision-1"]
+backend = "microsoft_decision"
+task = "responses"
+upstream_model = "semops-decision-1"
+base_url = "https://your-resource.services.ai.azure.com"
+api_key_env = "AZURE_OPENAI_API_KEY"
+json_schema_mode = "native"

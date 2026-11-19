@@ -1,0 +1,52 @@
+[server]
+host = "127.0.0.1"
+port = 8000
+
+[cache]
+database_path = "data/cache.sqlite3"
+
+[routing]
+models_path = "models.toml"
+
+[retries]
+invalid_output = 1
+http_errors = 2
+http_initial_delay_s = 0.5
+http_max_delay_s = 4.0
+
+[logging]
+log_path = "data/calls.jsonl"
+
+[guardrails]
+max_body_bytes = 65536
+max_embeddings_body_bytes = 4194304
+max_google_embedding_texts = 16
+max_output_tokens = 512
+
+requests_per_minute = 500
+max_concurrent_requests = 5
+max_rate_wait_s = 30.0
+
+[guardrails.run_limits]
+default_max_attempts_per_model = 10000
+
+[pricing]
+prices_path = "prices/test_prices.toml"
+
+[google]
+project_id = ""
+location = "global"
+
+
+[cache_sync]
+enabled = false
+
+bucket = "NOME_BUCKET_DEL_GRUPPO"
+endpoint = "https://s3.eu-central-003.backblazeb2.com"
+
+compatibility_id = "semops-2026-v1"
+
+credentials_file = "b2.local.env"
+
+max_entries_per_archive = 1000
+max_archive_mb = 10

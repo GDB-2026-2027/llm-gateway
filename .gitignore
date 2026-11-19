@@ -1,0 +1,41 @@
+# Local credentials and runtime data
+.env
+.env.*
+*.env
+*.env.*
+!templates/*.local.env.example
+/gateway.toml
+/models.toml
+/semops_check.py
+/data/
+/.cache_sync/
+
+# Python, test, and editor artifacts
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+build/
+dist/
+.DS_Store
+
+# Tests and private checks
+/test_*.py
+/tests/verification_*
+/docs/CHECKER_COMPAT.md
+/docs/VERIFICATION_PHASE3.md
+/semops_gateway_*.py
+/gateway_*.json
+
+# One-off setup files and backups
+/install_systemone.py
+/smoke_systemone_gateway.py
+/microsoft_decision.py
+/models_smoke_additions.toml
+*.bak
+*.patch
