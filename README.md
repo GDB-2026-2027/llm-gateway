@@ -1,16 +1,16 @@
 # LLM Gateway
 
-Gateway HTTP locale per il progetto universitario sui semantic operator. Ogni studente avvia la propria istanza; le chiamate ai modelli passano per `/v1/responses` o `/v1/embeddings`. Le risposte sono conservate in SQLite e le chiamate sono registrate in JSONL. La cache di gruppo su Backblaze B2 si sincronizza solo con `cache pull` e `cache push`.
+A local HTTP gateway for the university project on semantic operators. Each student runs their own instance; model calls go through `/v1/responses` or `/v1/embeddings`. Responses are stored in SQLite and calls are recorded in JSONL. The group's cache on Backblaze B2 is synchronized only through `cache pull` and `cache push`.
 
-Per partire da un repository appena clonato, seguire il [manuale operativo del gateway](docs/MANUALE_GATEWAY.md).
+To get started from a fresh clone, follow the [gateway operating guide](docs/GATEWAY_GUIDE.md).
 
-## Requisiti e installazione
+## Requirements and installation
 
-- `uv` installato; `setup.sh` seleziona Python 3.12 (uv può scaricarlo se manca).
-- Per i modelli Ollama, un server Ollama locale e i modelli indicati in `models.toml`.
-- Le credenziali cloud e B2 servono solo per le rispettive funzionalità.
+- `uv` installed; `setup.sh` selects Python 3.12 (`uv` can download it if necessary).
+- For Ollama models, a local Ollama server and the models listed in `models.toml`.
+- Cloud and B2 credentials are needed only for their respective features.
 
-Da una copia pulita del repository, `setup.sh` crea `gateway.toml` e `models.toml` dagli omonimi file `.example` senza sovrascrivere eventuali configurazioni locali:
+From a clean repository copy, `setup.sh` creates `gateway.toml` and `models.toml` from the corresponding `.example` files without overwriting existing local configurations:
 
 ```sh
 bash setup.sh
@@ -18,27 +18,27 @@ source ./activate.sh
 doctor
 ```
 
-`bash setup.sh` è l'unico comando necessario per installare il gateway: esegue `uv sync --locked --python 3.12` e installa il package, i provider configurabili, la sincronizzazione B2 e `pytest` nella `.venv`. **Non installa Neo4j, GraphDB/RDF4J, RDFLib o PyOxiGraph.** Neo4j e GraphDB sono server esterni che ogni gruppo installa e configura autonomamente. Per scegliere un altro Python compatibile: `SEMOPS_PYTHON_VERSION=3.13 bash setup.sh`. I comandi in `bin/` usano direttamente `.venv/bin/python`; non occorre impostare `PYTHONPATH`.
+`bash setup.sh` is the only command needed to install the gateway: it runs `uv sync --locked --python 3.12` and installs the package, configurable providers, B2 synchronization, and `pytest` in `.venv`. **It does not install Neo4j, GraphDB/RDF4J, RDFLib, or PyOxiGraph.** Neo4j and GraphDB are external servers that each group installs and configures independently. To select another compatible Python version: `SEMOPS_PYTHON_VERSION=3.13 bash setup.sh`. The commands in `bin/` use `.venv/bin/python` directly; setting `PYTHONPATH` is unnecessary.
 
-Chi usa i binding RDF Python può aggiungerli separatamente (sono facoltativi e non servono a chiamare le API HTTP del gateway):
+Students who use Python RDF bindings can add them separately (they are optional and are not needed to call the gateway's HTTP APIs):
 
 ```sh
-uv sync --locked --group rdflib       # solo RDFLib
-uv sync --locked --group oxigraph     # solo PyOxiGraph
-uv sync --locked --group rdflib --group oxigraph  # entrambi
+uv sync --locked --group rdflib       # RDFLib only
+uv sync --locked --group oxigraph     # PyOxiGraph only
+uv sync --locked --group rdflib --group oxigraph  # both
 ```
 
-`uv sync` sincronizza esattamente l'ambiente: se si esegue nuovamente `bash setup.sh`, i gruppi facoltativi vengono rimossi e vanno selezionati di nuovo. Anche `uv run` va invocato con i gruppi facoltativi necessari allo script, per esempio `uv run --locked --group rdflib python script.py`. `source ./activate.sh` aggiunge i comandi `start`, `cache`, `doctor` e `runs` al `PATH`, ma non installa pacchetti.
+`uv sync` synchronizes the environment exactly: running `bash setup.sh` again removes optional groups unless they are selected again. Likewise, invoke `uv run` with the optional groups needed by the script, for example `uv run --locked --group rdflib python script.py`. `source ./activate.sh` adds `start`, `cache`, `doctor`, and `runs` to `PATH`, but does not install packages.
 
-## Configurazione e avvio
+## Configuration and startup
 
-`gateway.toml` contiene porta, cache, log, limiti, retry e impostazioni dei provider. `models.toml` associa i nomi pubblici dei modelli al backend, al modello upstream e alle opzioni. Modificare le copie locali secondo il proprio ambiente; i file `.example` restano condivisi. Le rotte cloud possono restare nel file anche senza credenziali: un modello locale è utilizzabile senza configurare Google o Azure. Per Google GenAI, impostare `google.project_id` in `gateway.toml` e le credenziali Google richieste dall'ambiente; per Azure, completare `azure.local.env` con la variabile nominata da `api_key_env` nella rotta, oppure esportarla nell'ambiente. `start server` carica il file Azure se presente e anche `google.local.env` se presente. I file `*.local.env` sono ignorati da Git.
+`gateway.toml` contains the port, cache, log, limits, retries, and provider settings. `models.toml` maps public model names to backends, upstream models, and options. Edit the local copies for your environment; the `.example` files remain shared. Cloud routes can stay in the file without credentials: a local model can be used without configuring Google or Azure. For Google GenAI, set `google.project_id` in `gateway.toml` and provide the Google credentials required by your environment. For Azure, fill `azure.local.env` with the variable named by `api_key_env` in the route, or export it in the environment. `start server` loads the Azure file if present and also loads `google.local.env` if present. Git ignores `*.local.env` files.
 
 ```sh
 start server
 ```
 
-In un secondo terminale:
+In a second terminal:
 
 ```sh
 source ./activate.sh
@@ -46,32 +46,32 @@ start status
 curl http://127.0.0.1:8000/health
 ```
 
-La risposta attesa da `/health` è `{"status":"ok"}`. Gli schemi delle richieste sono visibili anche su `http://127.0.0.1:8000/docs`. Le richieste HTTP richiedono i campi `metadata.run_id` e `metadata.cache_namespace`.
+The expected `/health` response is `{"status":"ok"}`. Request schemas are also available at `http://127.0.0.1:8000/docs`. HTTP requests require `metadata.run_id` and `metadata.cache_namespace`.
 
-Il contratto effettivamente implementato, inclusi fallback e codici di errore, è in [docs/API.md](docs/API.md).
+The implemented contract, including fallbacks and error codes, is documented in [docs/API.md](docs/API.md).
 
-Esempio di chiamata HTTP a un modello locale, dopo aver avviato Ollama e scaricato `qwen2.5:3b`:
+Example HTTP call to a local model after starting Ollama and downloading `qwen2.5:3b`:
 
 ```sh
 curl -X POST http://127.0.0.1:8000/v1/responses \
   -H 'Content-Type: application/json' \
-  -d '{"model":"local/qwen2.5:3b","instructions":"Rispondi in JSON","input":[{"role":"user","content":"2 + 2 = 4?"}],"text":{"format":{"type":"json_schema","name":"answer","strict":true,"schema":{"type":"object","properties":{"answer":{"type":"boolean"}},"required":["answer"],"additionalProperties":false}}},"metadata":{"run_id":"prova-1","cache_namespace":"locale"}}'
+  -d '{"model":"local/qwen2.5:3b","instructions":"Respond in JSON","input":[{"role":"user","content":"2 + 2 = 4?"}],"text":{"format":{"type":"json_schema","name":"answer","strict":true,"schema":{"type":"object","properties":{"answer":{"type":"boolean"}},"required":["answer"],"additionalProperties":false}}},"metadata":{"run_id":"test-1","cache_namespace":"local"}}'
 ```
 
-Per gli embedding, usare lo stesso `metadata` con `POST /v1/embeddings` e un corpo come `{"model":"local/nomic-embed-text","input":["primo testo","secondo testo"],"metadata":{"run_id":"prova-1","cache_namespace":"locale"}}` (richiede il modello Ollama corrispondente).
+For embeddings, use the same `metadata` with `POST /v1/embeddings` and a body such as `{"model":"local/nomic-embed-text","input":["first text","second text"],"metadata":{"run_id":"test-1","cache_namespace":"local"}}` (requires the corresponding Ollama model).
 
-## Cache B2 e strumenti universitari
+## B2 cache and university tools
 
-La cache locale funziona senza B2. Per sincronizzarla manualmente, impostare `enabled = true` e la destinazione in `[cache_sync]` di `gateway.toml`, completare `b2.local.env` con `SEMOPS_STUDENT_ID`, `B2_ACCESS_KEY_ID` e `B2_SECRET_ACCESS_KEY`, quindi usare `cache status`, `cache pull` o `cache push`. L'avvio del server non effettua sincronizzazioni.
+The local cache works without B2. To synchronize it manually, set `enabled = true` and the destination in `[cache_sync]` in `gateway.toml`, fill `b2.local.env` with `SEMOPS_STUDENT_ID`, `B2_ACCESS_KEY_ID`, and `B2_SECRET_ACCESS_KEY`, then use `cache status`, `cache pull`, or `cache push`. Server startup does not synchronize the cache.
 
-La sequenza di lavoro tra studenti e la gestione dei conflitti sono descritte in [docs/CACHE_B2.md](docs/CACHE_B2.md).
+The workflow between students and conflict handling are described in [docs/CACHE_B2.md](docs/CACHE_B2.md).
 
-I comandi `runs check` e `runs build` richiedono il file esterno `semops_check.py` nella radice del repository. Il checker viene distribuito separatamente dal gateway. La CLI del gateway non richiede RDFLib, PyOxiGraph, Neo4j o GraphDB.
+The `runs check` and `runs build` commands require the external `semops_check.py` file at the repository root. The checker is distributed separately from the gateway. The gateway CLI does not require RDFLib, PyOxiGraph, Neo4j, or GraphDB.
 
-## Test
+## Tests
 
 ```sh
 uv run --locked pytest -q
 ```
 
-I test usano provider simulati e directory temporanee; non richiedono credenziali cloud, Ollama o B2. Non verificano la raggiungibilità o il comportamento reale dei provider.
+The tests use simulated providers and temporary directories; they require no cloud credentials, Ollama, or B2. They do not verify the reachability or actual behavior of providers.

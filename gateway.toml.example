@@ -41,7 +41,7 @@ location = "global"
 [cache_sync]
 enabled = false
 
-bucket = "NOME_BUCKET_DEL_GRUPPO"
+bucket = "GROUP_BUCKET_NAME"
 endpoint = "https://s3.eu-central-003.backblazeb2.com"
 
 compatibility_id = "semops-2026-v1"

@@ -1,22 +1,22 @@
-# Cache di gruppo su Backblaze B2
+# Group cache on Backblaze B2
 
-Ogni studente esegue il proprio gateway locale con cache SQLite. Gli studenti di uno stesso gruppo condividono un bucket/account B2 per scambiare **solo le voci di cache**; log JSONL e file di run non vengono sincronizzati. Il server non accede automaticamente a B2: il trasferimento avviene soltanto con i comandi manuali qui descritti.
+Each student runs a local gateway with a SQLite cache. Students in the same group share a B2 bucket/account to exchange **cache entries only**; JSONL logs and run files are not synchronized. The server does not access B2 automatically: transfers happen only through the manual commands described here.
 
-## Configurazione
+## Configuration
 
-La sezione `[cache_sync]` di `gateway.toml` contiene `enabled = true`, bucket, endpoint B2, `compatibility_id`, percorso di `credentials_file` e limiti delle dimensioni degli archivi. Ogni studente deve creare localmente il file indicato (di default `b2.local.env`) con:
+The `[cache_sync]` section of `gateway.toml` contains `enabled = true`, the bucket, B2 endpoint, `compatibility_id`, `credentials_file` path, and archive size limits. Each student must create the indicated file locally (`b2.local.env` by default) with:
 
 ```dotenv
-SEMOPS_STUDENT_ID=identificativo-univoco-studente
-B2_ACCESS_KEY_ID=chiave-condivisa-del-gruppo
-B2_SECRET_ACCESS_KEY=segreto-condiviso-del-gruppo
+SEMOPS_STUDENT_ID=unique-student-id
+B2_ACCESS_KEY_ID=shared-group-key
+B2_SECRET_ACCESS_KEY=shared-group-secret
 ```
 
-Il file non va committato. Gli studenti dello stesso gruppo usano bucket, endpoint e `compatibility_id` uguali, ma ciascuno usa un `SEMOPS_STUDENT_ID` distinto. La sincronizzazione rifiuta di cambiare destinazione o identità studente per un database locale già associato a un'altra destinazione. Gli schemi delle tabelle cache devono coincidere tra le istanze.
+Do not commit this file. Students in the same group use the same bucket, endpoint, and `compatibility_id`, but each has a distinct `SEMOPS_STUDENT_ID`. Synchronization refuses to change the destination or student identity of a local database already associated with another destination. Cache table schemas must match across instances.
 
-## Comandi
+## Commands
 
-Dopo `source ./activate.sh`:
+After `source ./activate.sh`:
 
 ```sh
 cache status
@@ -24,14 +24,14 @@ cache pull
 cache push
 ```
 
-I tre comandi accettano `--config PERCORSO` (default `gateway.toml`). `cache status` mostra conteggi di righe locali, sincronizzate, in coda, nuove, archivi noti e conflitti; è un controllo locale, ma richiede comunque il file delle credenziali perché la configurazione B2 viene validata all'avvio del comando. `cache pull` elenca e importa gli archivi del gruppo non ancora noti. `cache push` pubblica le voci locali nuove. Nessuno dei due comandi esegue automaticamente l'altro.
+All three commands accept `--config PATH` (default: `gateway.toml`). `cache status` shows counts of local, synchronized, queued, and new rows, known archives, and conflicts. It is a local check, but still requires the credentials file because the B2 configuration is validated when the command starts. `cache pull` lists and imports group archives that are not yet known. `cache push` publishes new local entries. Neither command runs the other automatically.
 
-Una sequenza pratica prima di lavorare è `cache pull`; al termine, `cache push`. Ripetere `cache pull` dopo i push degli altri studenti per ricevere i loro aggiornamenti. Il solo `cache status` non modifica oggetti remoti.
+A practical workflow is `cache pull` before starting work and `cache push` afterward. Repeat `cache pull` after other students push to receive their updates. `cache status` alone does not modify remote objects.
 
-## Aggiornamenti concorrenti e conflitti
+## Concurrent updates and conflicts
 
-Ogni push crea archivi compressi con una chiave B2 distinta che include `compatibility_id`, `SEMOPS_STUDENT_ID` e un UUID. Un push successivo di un altro studente non sovrascrive l'archivio precedente. I pull successivi importano le voci mancanti: **gli aggiornamenti con chiavi di cache diverse sono preservati**, anche se gli studenti fanno push senza aver fatto pull prima. L'importazione verifica dimensione e SHA-256 degli archivi.
+Each push creates compressed archives with distinct B2 keys containing `compatibility_id`, `SEMOPS_STUDENT_ID`, and a UUID. A later push by another student does not overwrite the earlier archive. Subsequent pulls import missing entries: **updates with different cache keys are preserved**, even if students push without pulling first. Import verifies archive size and SHA-256.
 
-Quando due istanze hanno una voce con la stessa combinazione `(tipo, cache_namespace, chiave)` ma righe diverse, il pull **mantiene la riga locale** e registra un conflitto in `cache status`; non esegue una sostituzione automatica. Il confronto riguarda l'intera riga, quindi anche differenze di testo generato, token, latenza o risposta grezza possono produrre conflitti. Se entrambi hanno già fatto push, entrambi gli archivi restano nel bucket, ma le cache locali possono continuare a dare risultati differenti. Se un'istanza importa la riga dell'altra prima di generare quella richiesta, il cache hit riduce questa possibilità. Le righe in conflitto sono escluse dalla selezione dei nuovi push locali; la risoluzione dei conflitti non è implementata.
+When two instances have an entry with the same `(type, cache_namespace, key)` but different rows, pull **keeps the local row** and records a conflict in `cache status`; it does not replace the row automatically. The comparison covers the entire row, so differences in generated text, tokens, latency, or raw response can also cause conflicts. If both students have already pushed, both archives remain in the bucket, but local caches may continue returning different results. If one instance imports the other's row before generating that request, a cache hit reduces this possibility. Conflicting rows are excluded from selection for new local pushes; conflict resolution is not implemented.
 
-Un fallback per parse error non viene memorizzato nella cache delle risposte e quindi non viene pubblicato su B2.
+A parse-error fallback is not stored in the response cache and therefore is not published to B2.

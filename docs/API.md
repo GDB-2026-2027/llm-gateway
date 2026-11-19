@@ -1,22 +1,22 @@
-# Contratto HTTP del gateway
+# Gateway HTTP contract
 
-Il server locale espone `GET /health`, `POST /v1/responses` e `POST /v1/embeddings` (di norma su `http://127.0.0.1:8000`). I nomi di modello pubblici e i relativi task sono in `models.toml`. Gli endpoint accettano JSON; i corpi con campi sconosciuti sono rifiutati. L'API è **specifica di questo progetto**: il nome `/v1/responses` non implica la piena compatibilità con la Responses API di OpenAI.
+The local server exposes `GET /health`, `POST /v1/responses`, and `POST /v1/embeddings` (usually at `http://127.0.0.1:8000`). Public model names and their tasks are defined in `models.toml`. Endpoints accept JSON and reject bodies with unknown fields. This API is **specific to this project**: the name `/v1/responses` does not imply full compatibility with OpenAI's Responses API.
 
 ## `POST /v1/responses`
 
-Campi obbligatori del corpo:
+Required body fields:
 
-| Campo | Tipo e vincoli |
+| Field | Type and constraints |
 | --- | --- |
-| `model` | Stringa non vuota; nome pubblico di una rotta con task `responses`. |
-| `instructions` | Stringa non vuota con le istruzioni per il modello. |
-| `input` | Lista non vuota di messaggi `{ "role": "system" | "user" | "assistant", "content": "..." }`; ogni `content` è non vuoto. |
-| `text.format` | Oggetto con `type: "json_schema"`, `name` non vuoto, `strict: true` e `schema` (JSON Schema valido secondo Draft 2020-12). |
-| `metadata` | Oggetto con `run_id` e `cache_namespace`, entrambi stringhe non vuote. |
+| `model` | Nonempty string; public name of a route with the `responses` task. |
+| `instructions` | Nonempty string with instructions for the model. |
+| `input` | Nonempty list of messages `{ "role": "system" | "user" | "assistant", "content": "..." }`; each `content` is nonempty. |
+| `text.format` | Object with `type: "json_schema"`, a nonempty `name`, `strict: true`, and `schema` (valid JSON Schema Draft 2020-12). |
+| `metadata` | Object with `run_id` and `cache_namespace`, both nonempty strings. |
 
-Campi opzionali: `temperature` (numero fra `0` e `2`, oppure `null`) e `top_logprobs` (intero non negativo, oppure `null`). Non sono previsti streaming, tool call o `max_output_tokens` per richiesta: il limite di output è configurato in `gateway.toml`.
+Optional fields: `temperature` (a number between `0` and `2`, or `null`) and `top_logprobs` (a nonnegative integer, or `null`). Per-request streaming, tool calls, and `max_output_tokens` are not supported: the output limit is configured in `gateway.toml`.
 
-Esempio con la rotta locale `local/qwen2.5:3b`; richiede Ollama e il modello già disponibili:
+Example using the local `local/qwen2.5:3b` route; requires Ollama and the model to be available:
 
 ```sh
 curl -sS http://127.0.0.1:8000/v1/responses \
@@ -24,7 +24,7 @@ curl -sS http://127.0.0.1:8000/v1/responses \
   -d @- <<'JSON'
 {
   "model": "local/qwen2.5:3b",
-  "instructions": "Rispondi soltanto in JSON.",
+  "instructions": "Respond only in JSON.",
   "input": [{"role": "user", "content": "2 + 2 = 4?"}],
   "text": {"format": {
     "type": "json_schema",
@@ -37,51 +37,51 @@ curl -sS http://127.0.0.1:8000/v1/responses \
       "additionalProperties": false
     }
   }},
-  "metadata": {"run_id": "prova-1", "cache_namespace": "gruppo-1"}
+  "metadata": {"run_id": "test-1", "cache_namespace": "group-1"}
 }
 JSON
 ```
 
-La risposta HTTP 200 valida ha questo involucro. Il valore di `output[0].content[0].text` è **una stringa contenente JSON**, da analizzare una seconda volta. Qui `false` è una decisione negativa autentica perché `parse_ok` è `true`:
+A valid HTTP 200 response has this envelope. The value of `output[0].content[0].text` is **a string containing JSON** and must be parsed again. Here `false` is an actual negative decision because `parse_ok` is `true`:
 
 ```json
 {
   "output": [{"type": "message", "content": [{"type": "output_text", "text": "{\"answer\":false}"}]}],
   "parse_ok": true,
-  "provider_response": {"id": "esempio-provider"}
+  "provider_response": {"id": "example-provider"}
 }
 ```
 
-`provider_response` contiene l'oggetto grezzo restituito dal provider, quindi la forma e gli eventuali campi di usage o log-probability dipendono dal backend. Non esiste un campo normalizzato per token, costi o log-probability nella risposta di `/v1/responses`; questi dati sono registrati nel log quando disponibili.
+`provider_response` contains the raw object returned by the provider, so its shape and any usage or log-probability fields depend on the backend. The `/v1/responses` response has no normalized field for tokens, costs, or log probabilities; these are recorded in the log when available.
 
-### Output non valido e fallback
+### Invalid output and fallback
 
-Il gateway analizza il testo del modello come JSON e lo verifica contro lo schema richiesto. Se fallisce, riprova la generazione secondo `retries.invalid_output` in `gateway.toml`. Se un retry produce un output valido, la risposta finale è `parse_ok: true`; il log conserva il numero di `parse_retries`.
+The gateway parses the model text as JSON and checks it against the requested schema. If validation fails, it retries generation according to `retries.invalid_output` in `gateway.toml`. If a retry produces valid output, the final response has `parse_ok: true`; the log retains the number of `parse_retries`.
 
-Quando tutti i tentativi producono output non valido e lo schema è supportato per il fallback, il gateway risponde comunque **HTTP 200**:
+When all attempts produce invalid output and the schema supports a fallback, the gateway still returns **HTTP 200**:
 
 ```json
 {
   "output": [{"type": "message", "content": [{"type": "output_text", "text": "{\"answer\":false}"}]}],
   "parse_ok": false,
-  "provider_response": {"id": "ultima-generazione-non-valida"},
+  "provider_response": {"id": "last-invalid-generation"},
   "error_type": "parse_error"
 }
 ```
 
-`parse_ok` ed `error_type` sono campi esterni al JSON contenuto in `text`; non vengono aggiunti a `{"answer":false}`. Un client HTTP diretto deve leggere `parse_ok`, non dedurre il successo dal solo valore booleano. `provider_response` si riferisce all'ultimo tentativo del provider, non al fallback.
+`parse_ok` and `error_type` are outside the JSON string in `text`; they are not added to `{"answer":false}`. A direct HTTP client must read `parse_ok` rather than infer success from the Boolean value alone. `provider_response` refers to the provider's last attempt, not the fallback.
 
-Per una classificazione con schema `{ "label": { "type": "string", "enum": [...] } }`, il fallback usa una label riservata basata su `__PARSE_FAILURE__`; se quella stringa è già nell'enum viene aggiunto un prefisso `_` finché non collide più. La label di fallback è deliberatamente fuori dalle classi valide e può non soddisfare l'enum richiesto. Per altri schemi privi di fallback, dopo i retry il gateway restituisce HTTP 502 (`No fallback available`) e registra `parse_ok: false` con `error_type: "unsupported_fallback"`.
+For classification with a `{ "label": { "type": "string", "enum": [...] } }` schema, the fallback uses a reserved label based on `__PARSE_FAILURE__`. If that string is already in the enum, a `_` prefix is added until there is no collision. The fallback label is deliberately outside the valid classes and may not satisfy the requested enum. For other schemas without a fallback, the gateway returns HTTP 502 (`No fallback available`) after retries and records `parse_ok: false` with `error_type: "unsupported_fallback"`.
 
-Una generazione valida viene memorizzata nella cache SQLite, comprese le informazioni di usage, retry e la risposta grezza del provider. Un fallback non viene memorizzato. Su cache hit il client riceve di nuovo `parse_ok: true`, lo stesso `output` e la risposta grezza conservata. Il log del cache hit riporta `attempts`, `parse_retries` e `other_retries` della chiamata originaria: per `responses`, `other_retries` è ricavato da `attempts - 1 - parse_retries`; per gli embeddings, da `attempts - 1` sulla voce che rappresenta la chiamata upstream. `cache_hit: true` indica che quei retry non sono stati eseguiti durante la nuova richiesta. Non esiste un indicatore `cache_hit` nel corpo HTTP: è nel log. La cache è separata per `cache_namespace`; `run_id` identifica la run per log e limite di tentativi, ma non fa parte della chiave di cache. Le chiavi dipendono da modello, messaggi, schema e parametri configurati.
+Valid generations are stored in the SQLite cache, including usage, retry information, and the raw provider response. Fallbacks are not stored. On a cache hit, the client receives `parse_ok: true` again, along with the same `output` and stored raw response. The cache-hit log includes the original call's `attempts`, `parse_retries`, and `other_retries`: for `responses`, `other_retries` is derived from `attempts - 1 - parse_retries`; for embeddings, from `attempts - 1` on the entry representing the upstream call. `cache_hit: true` indicates that those retries did not happen during the new request. There is no `cache_hit` indicator in the HTTP body; it is in the log. Caches are separated by `cache_namespace`; `run_id` identifies the run for logging and attempt limits but is not part of the cache key. Keys depend on the model, messages, schema, and configured parameters.
 
-### Log-probabilities
+### Log probabilities
 
-Una rotta può dichiarare `top_logprobs` in `models.toml`. Una richiesta con `top_logprobs` maggiore della capacità configurata riceve HTTP 422. Quando la rotta ha un valore positivo, l'adapter chiede al provider la profondità **configurata sulla rotta**, anche se il client omette il campo o chiede un valore inferiore. Le log-probability non vengono normalizzate dal gateway: se il provider le restituisce, si trovano nel suo `provider_response`, anche su cache hit. Il backend `microsoft_decision` non supporta token log-probability. La disponibilità effettiva dipende dal provider e dal modello.
+A route can declare `top_logprobs` in `models.toml`. A request asking for more than the configured capacity receives HTTP 422. When the route has a positive value, the adapter requests the depth **configured on the route**, even if the client omits the field or asks for a lower value. The gateway does not normalize log probabilities: if the provider returns them, they appear in `provider_response`, including on cache hits. The `microsoft_decision` backend does not support token log probabilities. Actual availability depends on the provider and model.
 
 ## `POST /v1/embeddings`
 
-Campi obbligatori: `model` (stringa non vuota, rotta con task `embeddings`), `input` (stringa non vuota oppure lista non vuota di stringhe non vuote) e `metadata` con `run_id` e `cache_namespace` come sopra. Campo opzionale: `encoding_format`, il cui unico valore ammesso è `"float"` (default). I campi sconosciuti sono rifiutati.
+Required fields: `model` (a nonempty string naming a route with the `embeddings` task), `input` (a nonempty string or a nonempty list of nonempty strings), and `metadata` with `run_id` and `cache_namespace` as above. Optional field: `encoding_format`, whose only allowed value is `"float"` (the default). Unknown fields are rejected.
 
 ```sh
 curl -sS http://127.0.0.1:8000/v1/embeddings \
@@ -89,13 +89,13 @@ curl -sS http://127.0.0.1:8000/v1/embeddings \
   -d @- <<'JSON'
 {
   "model": "local/nomic-embed-text",
-  "input": ["primo testo", "secondo testo"],
-  "metadata": {"run_id": "prova-1", "cache_namespace": "gruppo-1"}
+  "input": ["first text", "second text"],
+  "metadata": {"run_id": "test-1", "cache_namespace": "group-1"}
 }
 JSON
 ```
 
-Con il modello Ollama corrispondente disponibile, la risposta ha questa forma (vettori e conteggi qui solo illustrativi):
+With the corresponding Ollama model available, the response has this shape (vectors and counts are illustrative):
 
 ```json
 {
@@ -109,25 +109,25 @@ Con il modello Ollama corrispondente disponibile, la risposta ha questa forma (v
 }
 ```
 
-`data` mantiene ordine e indici dell'input. I testi identici nella stessa richiesta vengono deduplicati per le chiamate upstream, ma ciascuna posizione conserva il proprio elemento `data` e la propria riga di log. La cache SQLite è per singolo testo e namespace. `usage` è presente solo se il gateway conosce i token delle nuove chiamate effettuate per **questa** richiesta; i cache hit non vengono conteggiati. Può quindi essere assente oppure riportare zero quando tutto arriva dalla cache. Google GenAI accetta al massimo `guardrails.max_google_embedding_texts` testi per richiesta e invia separatamente ogni testo mancante.
+`data` preserves input order and indices. Identical texts in one request are deduplicated for upstream calls, but each position retains its own `data` element and log row. The SQLite cache is per text and namespace. `usage` is present only if the gateway knows the token counts of new calls made for **this** request; cache hits are not counted. It may therefore be absent or show zero when everything comes from the cache. Google GenAI accepts at most `guardrails.max_google_embedding_texts` texts per request and sends each missing text separately.
 
-## Errori e log
+## Errors and logs
 
-| HTTP | Casi principali |
+| HTTP | Main cases |
 | --- | --- |
-| 200 | Risposta valida, cache hit o fallback supportato dopo parse error; controllare `parse_ok` per `/v1/responses`. |
-| 413 | Corpo oltre il limite configurato (`max_body_bytes` per responses, `max_embeddings_body_bytes` per embeddings). |
-| 404 | Modello pubblico sconosciuto. |
-| 422 | Corpo non valido, schema JSON non valido, task errato o opzione non supportata dalla rotta. |
-| 429 | Limite di frequenza/concorrenza del provider o tentativi per `(run_id, model)` esauriti. |
-| 501 | Backend non implementato per il task richiesto. |
-| 502 | Errore upstream/trasporto, risposta upstream malformata o fallback non disponibile. |
-| 503 | Voce di cache corrotta; il gateway non effettua una nuova chiamata upstream. |
+| 200 | Valid response, cache hit, or supported fallback after a parse error; check `parse_ok` for `/v1/responses`. |
+| 413 | Body exceeds the configured limit (`max_body_bytes` for responses, `max_embeddings_body_bytes` for embeddings). |
+| 404 | Unknown public model name. |
+| 422 | Invalid body or JSON Schema, wrong task, or an option not supported by the route. |
+| 429 | Provider rate/concurrency limit or exhausted attempts for `(run_id, model)`. |
+| 501 | Backend not implemented for the requested task. |
+| 502 | Upstream/transport error, malformed upstream response, or unavailable fallback. |
+| 503 | Corrupt cache entry; the gateway does not make a new upstream call. |
 
-Gli errori HTTP hanno in genere un corpo `{"detail": ...}`. Errori di trasporto, timeout e budget non diventano `parse_error`: nei log hanno `parse_ok: null` e un `error_type` distinto. Il file JSONL configurato in `[logging]` contiene una riga per chiamata a `/v1/responses` che raggiunge la fase di cache/provider e una per posizione di input di un batch `/v1/embeddings` completato; richieste rifiutate prima di questa fase possono non avere una riga. I campi `run_id`, `cache_namespace`, `model`, `key`, `cache_hit`, `parse_ok`, `parse_retries`, `other_retries`, `attempts`, `error_type`, usage, `latency_s` e costi consentono di identificare i fallback e contare i retry effettivamente eseguiti. Nelle risposte `latency_s` è la durata dell'ultima invocazione del provider. Nei batch di embedding è la quota della durata dell'ultima invocazione attribuita a ciascun testo in proporzione ai suoi token, come per il costo; con token ignoti o totali pari a zero, la durata è ripartita in parti uguali. Il valore è conservato per diagnostica nella cache e nel log; un cache hit copia la quota originaria. Le righe di cache preesistenti mantengono il valore di latenza registrato al momento della creazione. Il fallback registra `parse_ok: false` e `error_type: "parse_error"`. Il checker esterno esporta il fallback come record `calls` senza `error_type` né `latency_s`, accetta più invocazioni della stessa chiave con esiti diversi e ricava `n_parse_retries` e `n_other_retries` dai log. Il solo tempo nei run file e nei risultati è `run.wallclock_s`. I campi `tokens_in_final`/`tokens_out_final` e `tokens_in_last`/`tokens_out_last` identificano i token del tentativo terminale da usare nel run file; i retry precedenti non vengono sommati nelle metriche principali.
+HTTP errors generally have a `{"detail": ...}` body. Transport errors, timeouts, and budget errors do not become `parse_error`: they have `parse_ok: null` and a distinct `error_type` in the logs. The JSONL file configured in `[logging]` contains one row per `/v1/responses` call that reaches the cache/provider phase and one row per input position in a completed `/v1/embeddings` batch; requests rejected earlier may have no row. The `run_id`, `cache_namespace`, `model`, `key`, `cache_hit`, `parse_ok`, `parse_retries`, `other_retries`, `attempts`, `error_type`, usage, `latency_s`, and cost fields allow clients to identify fallbacks and count retries actually performed. For responses, `latency_s` is the duration of the last provider invocation. For embedding batches, it is the share of the last invocation's duration assigned to each text in proportion to its tokens, as with cost; when token counts are unknown or total zero, duration is split equally. This value is retained for diagnostics in the cache and log; a cache hit copies the original share. Existing cache rows retain the latency value recorded when they were created. A fallback records `parse_ok: false` and `error_type: "parse_error"`. The external checker exports a fallback as a `calls` record without `error_type` or `latency_s`, accepts multiple invocations of the same key with different outcomes, and derives `n_parse_retries` and `n_other_retries` from logs. The only time value in run files and results is `run.wallclock_s`. The `tokens_in_final`/`tokens_out_final` and `tokens_in_last`/`tokens_out_last` fields identify terminal-attempt tokens for the run file; earlier retries are not summed into the main metrics.
 
-## Binding dei database
+## Database bindings
 
-Per Neo4j GenAI configurare `genai.openai.baseurl` verso il gateway locale e inoltrare `instructions`, `metadata.run_id` e `metadata.cache_namespace` tramite `vendorOptions`. Il plugin richiede `output[0].type: "message"`. Cypher restituisce la mappa validata, per esempio `{answer: false}` o `{label: "__PARSE_FAILURE__"}`: `parse_ok` ed `error_type` non sono esposti nella mappa. Per il booleano, il log JSONL identificato da `run_id` permette di distinguere il fallback da una decisione negativa autentica. Un client HTTP diretto può invece leggere `parse_ok` nel corpo della risposta.
+For Neo4j GenAI, point `genai.openai.baseurl` at the local gateway and pass `instructions`, `metadata.run_id`, and `metadata.cache_namespace` through `vendorOptions`. The plugin requires `output[0].type: "message"`. Cypher returns the validated map, for example `{answer: false}` or `{label: "__PARSE_FAILURE__"}`; `parse_ok` and `error_type` are not exposed in the map. For Boolean results, the JSONL log identified by `run_id` distinguishes a fallback from an actual negative decision. A direct HTTP client can read `parse_ok` in the response body instead.
 
-Per RDFLib e Oxigraph, le funzioni SPARQL devono effettuare richieste HTTP al gateway. Il repository non include gli operatori degli studenti.
+For RDFLib and Oxigraph, SPARQL functions must make HTTP requests to the gateway. The repository does not include students' operators.

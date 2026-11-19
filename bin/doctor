@@ -3,7 +3,7 @@ set -euo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 PYTHON="$ROOT/.venv/bin/python"
 if [[ ! -x "$PYTHON" ]]; then
-  printf 'Ambiente .venv mancante. Dalla radice del gateway esegui: bash setup.sh\n' >&2
+  printf 'Missing .venv environment. Run bash setup.sh from the gateway root.\n' >&2
   exit 2
 fi
 exec "$PYTHON" "$ROOT/tools/semops_cli.py" "$(basename -- "$0")" "$@"
